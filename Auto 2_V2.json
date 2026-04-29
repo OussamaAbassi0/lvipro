@@ -1,0 +1,286 @@
+{
+  "name": "Auto 2 V2 — Prospection Lemlist LED (Human-in-the-Loop)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "auto2-generate-icebreakers",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ab002b3d-4c16-4a5b-af4c-714514b4ed70",
+      "name": "🌐 Webhook — Générer Icebreakers",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-112, 0],
+      "webhookId": "auto2-generate-icebreakers"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\nlet leads = [];\nif (body.body && Array.isArray(body.body.leads)) leads = body.body.leads;\nelse if (Array.isArray(body.leads)) leads = body.leads;\nelse if (Array.isArray(body.body)) leads = body.body;\nif (leads.length === 0) return [];\nreturn leads.map(lead => ({ json: lead }));"
+      },
+      "id": "11f26e18-e5f1-416f-a648-01d23e2cadc9",
+      "name": "✂️ Split Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [64, 0]
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "value": "gpt-4o", "mode": "list", "cachedResultName": "GPT-4O" },
+        "messages": {
+          "values": [
+            {
+              "content": "Tu es un expert en Copywriting B2B spécialisé dans les solutions d'affichage LED et un Directeur Artistique pour la société LVI (Led Visual Innovation).\n\nCONTEXTE :\nTu dois générer un objet JSON pour personnaliser un email de prospection. Ton but est de créer une accroche (icebreaker) pertinente et de choisir l'image la plus adaptée au secteur du prospect.\n\nCATALOGUE DES VISUELS (MAPPING STRICT - 13 SEGMENTS) :\n1. SECTEUR PUBLIC / MAIRIES : 'saint-vit-2.jpg' ou 'ECRAN-MARKUP-LVI-6.jpg'.\n2. SPORT AUTOMOBILE / GARAGES : '24H-MANS-LED-VISUAL-INNOVATION.jpg' ou 'LVI-CENTENAIRE-DU-MANS.jpg'.\n3. RETAIL / COMMERCE / BOUTIQUES : 'LOCATION-DECATHLON-FRANCE-LVI.jpg' ou 'LVI-ECRAN-VITRINE-LCD.jpg'.\n4. ÉVÉNEMENTIEL / FANZONES : 'FANZONE-EURO-LVI-LOCATION.jpg' ou 'MUR-IMAGES-LED-VISUAL-INNOVATION.jpg'.\n5. GRANDS ÉVÉNEMENTS / JO : 'LOC-JO-PARIS-2024-ALT.jpg'.\n6. ARMÉE / DÉFENSE : 'LOCATION-ECRAN-EXTERIEUR-ARMEE-TERRE.jpg'.\n7. IMMOBILIER : 'LVI-IMPAKT-IMMO.jpg'.\n8. MUSÉES / AVIATION : 'LVI-MUSEE-AIR-FRANCE-CONCORDE-PARIS.jpg'.\n9. STANDS / SALONS PRO : 'STAND-POSOS-2023-LVI.jpg' ou 'MUR-IMAGES-CLOISON.jpg' ou 'LOCATION-ROLL-UP-LVI.jpg'.\n10. BUREAUX / SIÈGES SOCIAUX (HALL) : 'MUR-IMAGES-HALL-LVI.jpg'.\n11. STUDIO / TV / TOURNAGE : 'TOURNAGE-STUDIO.jpg'.\n12. CLUBS SPORTIFS : 'MUR-IMAGES-LVI.jpg'.\n13. GÉNÉRIQUE (SI AUCUN MATCH) : '20230222_164510-1.jpg' ou 'LVI-ECRAN-EXTERIEUR-PARIS.jpg'.\n\nCONSIGNES DE RÉDACTION (ICEBREAKER) :\n- Ton : Professionnel, direct et enthousiaste.\n- Structure : Max 2 phrases.\n- Contenu : Fais le lien entre leur secteur d'activité et l'impact visuel d'un écran LED.\n- Langue : Français.\n\nCONTRAINTES TECHNIQUES :\n- Réponds EXCLUSIVEMENT sous forme de JSON valide.\n- NE PAS inclure de balises markdown.\n- Utilise exactement ces clés : \"icebreaker\", \"visuel_choisi\", \"segment_deduit\".",
+              "role": "system"
+            },
+            {
+              "content": "=Génère une accroche personnalisée pour ce prospect.\n\nNom : {{ $json.firstName }} {{ $json.lastName }}\nEntreprise : {{ $json.companyName }}\nSegment validé : {{ $json.segment }}\n\nINSTRUCTIONS SEGMENT :\n1. Si un segment validé est fourni, reprends-le exactement.\n2. S'il est vide, déduis-le seulement si évident. Sinon renvoie \"\".\n\nFORMAT DE SORTIE OBLIGATOIRE (JSON pur) :\n{\n\"segment_deduit\": \"segment parmi les 13 officiels ou vide\",\n\"icebreaker\": \"La phrase d'accroche\",\n\"visuel_choisi\": \"nom_du_fichier.jpg\"\n}"
+            }
+          ]
+        },
+        "options": { "maxTokens": 250, "temperature": 0.2 }
+      },
+      "id": "f053272b-a4f4-4d5f-a8a0-e3796cf19712",
+      "name": "🤖 GPT-4o — Accroche email",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [496, 0],
+      "credentials": { "openAiApi": { "id": "Bfv2QoNbDzCc71pm", "name": "OpenAI account" } }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "assign-id", "name": "id", "value": "={{ $('✂️ Split Leads').item.json.id || ('draft_' + Date.now()) }}", "type": "string" },
+            { "id": "assign-email", "name": "email", "value": "={{ $('✂️ Split Leads').item.json.email || '' }}", "type": "string" },
+            { "id": "assign-firstname", "name": "firstName", "value": "={{ $('✂️ Split Leads').item.json.firstName || '' }}", "type": "string" },
+            { "id": "assign-lastname", "name": "lastName", "value": "={{ $('✂️ Split Leads').item.json.lastName || '' }}", "type": "string" },
+            { "id": "assign-company", "name": "companyName", "value": "={{ $('✂️ Split Leads').item.json.companyName || '' }}", "type": "string" },
+            {
+              "id": "assign-icebreaker",
+              "name": "icebreaker",
+              "value": "={{ (() => { try { return JSON.parse($json.message.content.replace(/```json|```/g, '').trim()).icebreaker } catch(e) { return '' } })() }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-visuel",
+              "name": "visuel_choisi",
+              "value": "={{ (() => { try { return JSON.parse($json.message.content.replace(/```json|```/g, '').trim()).visuel_choisi } catch(e) { return '20230222_164510-1.jpg' } })() }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-visuel-url",
+              "name": "visuel_url",
+              "value": "={{ 'https://lvipro-zc5x.vercel.app/library/' + (() => { try { return JSON.parse($json.message.content.replace(/```json|```/g, '').trim()).visuel_choisi } catch(e) { return '20230222_164510-1.jpg' } })() }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-segment",
+              "name": "segment",
+              "value": "={{ (() => { try { return JSON.parse($json.message.content.replace(/```json|```/g, '').trim()).segment_deduit } catch(e) { return '' } })() }}",
+              "type": "string"
+            },
+            { "id": "assign-statut", "name": "statut", "value": "Brouillon Lemlist", "type": "string" },
+            { "id": "assign-typeprojet", "name": "typeProjet", "value": "={{ $('✂️ Split Leads').item.json.typeProjet || '' }}", "type": "string" },
+            { "id": "assign-imported-at", "name": "importedAt", "value": "={{ $now.toISO() }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7a85e550-3117-43b7-9026-de5013510253",
+      "name": "🗂️ Formatage Réponse IA",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [816, 0]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "leads",
+        "options": {}
+      },
+      "id": "3b0b718d-c4f8-4aad-a860-ab31fd84be6d",
+      "name": "🔗 Agrégation Icebreakers",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [1024, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://lvipro-zc5x.vercel.app/api/data/campagnes/bulk",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"leads\": $json.leads.map(l => ({ id: l.id || ('draft_' + Date.now()), email: l.email || '', firstName: l.firstName || '', lastName: l.lastName || '', companyName: l.companyName || '', segment: l.segment || '', typeProjet: l.typeProjet || '', icebreaker: l.icebreaker || '', visuel_url: l.visuel_url || '', statut: 'Brouillon Lemlist', importedAt: l.importedAt || new Date().toISOString() })) } }}",
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "supabase-draft-save-a2-001",
+      "name": "💾 Supabase — Sauvegarder Brouillons",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1232, 0],
+      "continueOnFail": true,
+      "notes": "V2 FIX: Save icebreakers to Supabase as 'Brouillon Lemlist' BEFORE responding.\nThis ensures drafts survive page refresh. The dashboard reads from Supabase,\nnot from this webhook response.\nThe Lemlist export is triggered manually via the dashboard → /api/export-lemlist."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('🔗 Agrégation Icebreakers').first().json) }}",
+        "options": {}
+      },
+      "id": "f229a17c-f6ae-499d-8b99-867796b6e02e",
+      "name": "↩️ Respond — Icebreakers",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1440, 0]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "auto2-export-lemlist",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "064dbf3a-781b-43a2-ac28-5ecb106cb544",
+      "name": "🌐 Webhook — Export Lemlist",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 400],
+      "webhookId": "auto2-export-lemlist",
+      "notes": "HUMAN-IN-THE-LOOP: This webhook is only called from the dashboard after\nhuman review of the drafts saved in Supabase. Never auto-triggered."
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\nlet leads = [];\nif (body.body && Array.isArray(body.body.leads)) leads = body.body.leads;\nelse if (Array.isArray(body.leads)) leads = body.leads;\nelse if (Array.isArray(body.body)) leads = body.body;\nelse if (Array.isArray(body)) leads = body;\nif (leads.length === 0) return [];\nreturn leads.map(lead => ({ json: lead }));"
+      },
+      "id": "a9715757-7418-4e65-b113-2fc19c7ce0c3",
+      "name": "✂️ Split Export Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.lemlist.com/api/campaigns/cam_hFAkqeu9HPzqh6NiA/leads/{{ $json.email }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"firstName\": \"{{ $json.firstName }}\",\n  \"lastName\": \"{{ $json.lastName }}\",\n  \"companyName\": \"{{ $json.companyName }}\",\n  \"icebreaker\": \"{{ $json.icebreaker }}\",\n  \"typeProjet\": \"{{ $json.typeProjet }}\",\n  \"visuelDynamique\": \"{{ $json.visuel_url }}\"\n}",
+        "options": {}
+      },
+      "id": "dd4f3d57-6062-4be1-bd2c-af6a1a322845",
+      "name": "🚀 HTTP Request — Lemlist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [448, 400],
+      "credentials": { "httpBasicAuth": { "id": "5LLKlaGepSVkNuck", "name": "Unnamed credential" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://lvipro-zc5x.vercel.app/api/data/campagnes/bulk",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"ids\": $input.all().map(i => i.json.id).filter(Boolean), \"statut\": \"Exporté Lemlist\" } }}",
+        "options": {}
+      },
+      "id": "update-statut-supabase-a2-001",
+      "name": "📊 MAJ Statut Supabase → Exporté",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [672, 240],
+      "continueOnFail": true,
+      "notes": "V2: Updates Supabase statut to 'Exporté Lemlist' after successful injection."
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "leads",
+        "options": {}
+      },
+      "id": "571e2413-3eb2-4375-82da-6398384fefcb",
+      "name": "🔗 Agrégation Export",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [672, 400]
+    },
+    {
+      "parameters": {
+        "sendTo": "projets@led-visual-innovation.fr",
+        "subject": "=🚀 {{ $json.leads ? $json.leads.length : 0 }} lead(s) injectés dans Lemlist — LVI Control Center",
+        "message": "=<p>Export Lemlist terminé. {{ $json.leads ? $json.leads.length : 0 }} contact(s) injectés depuis le Dashboard après validation humaine.</p><p><a href=\"https://lvipro-zc5x.vercel.app\">Ouvrir le Dashboard</a> | <a href=\"https://app.lemlist.com\">Voir dans Lemlist</a></p>",
+        "options": {}
+      },
+      "id": "56fd64aa-9703-4ba4-a801-6312248eea80",
+      "name": "📧 Gmail - Notif Export Lemlist",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [880, 400],
+      "credentials": { "gmailOAuth2": { "id": "2WjwiJwQckJBgO2z", "name": "Gmail OAuth2 API" } }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"exported\": {{ $('🔗 Agrégation Export').item.json.leads ? $('🔗 Agrégation Export').item.json.leads.length : 0 }},\n  \"workflow\": \"auto2-export-lemlist\",\n  \"triggeredAt\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "c72a68bd-7ec6-4371-b73a-d247c0d8e605",
+      "name": "↩️ Respond — Export Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1104, 400]
+    },
+    {
+      "parameters": {},
+      "id": "f600e3f3-c198-4317-99df-9b2d3d043263",
+      "name": "⚠️ Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [1264, 192]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"error\",\n  \"message\": \"Erreur dans n8n\",\n  \"failed_node\": \"{{ $json.execution.error.node.name }}\",\n  \"error_details\": \"{{ $json.execution.error.message }}\"\n}",
+        "options": {}
+      },
+      "id": "406b08dc-ac88-41fb-9ee7-f07748cc0c24",
+      "name": "⚠️ Respond to Webhook (Erreur)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1440, 192]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "🌐 Webhook — Générer Icebreakers": { "main": [[{ "node": "✂️ Split Leads", "type": "main", "index": 0 }]] },
+    "✂️ Split Leads": { "main": [[{ "node": "🤖 GPT-4o — Accroche email", "type": "main", "index": 0 }]] },
+    "🤖 GPT-4o — Accroche email": { "main": [[{ "node": "🗂️ Formatage Réponse IA", "type": "main", "index": 0 }]] },
+    "🗂️ Formatage Réponse IA": { "main": [[{ "node": "🔗 Agrégation Icebreakers", "type": "main", "index": 0 }]] },
+    "🔗 Agrégation Icebreakers": { "main": [[{ "node": "💾 Supabase — Sauvegarder Brouillons", "type": "main", "index": 0 }]] },
+    "💾 Supabase — Sauvegarder Brouillons": { "main": [[{ "node": "↩️ Respond — Icebreakers", "type": "main", "index": 0 }]] },
+    "🌐 Webhook — Export Lemlist": { "main": [[{ "node": "✂️ Split Export Leads", "type": "main", "index": 0 }]] },
+    "✂️ Split Export Leads": { "main": [[{ "node": "🚀 HTTP Request — Lemlist", "type": "main", "index": 0 }]] },
+    "🚀 HTTP Request — Lemlist": {
+      "main": [[
+        { "node": "📊 MAJ Statut Supabase → Exporté", "type": "main", "index": 0 },
+        { "node": "🔗 Agrégation Export", "type": "main", "index": 0 }
+      ]]
+    },
+    "🔗 Agrégation Export": { "main": [[{ "node": "📧 Gmail - Notif Export Lemlist", "type": "main", "index": 0 }]] },
+    "📧 Gmail - Notif Export Lemlist": { "main": [[{ "node": "↩️ Respond — Export Success", "type": "main", "index": 0 }]] },
+    "⚠️ Error Trigger": { "main": [[{ "node": "⚠️ Respond to Webhook (Erreur)", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "a2v2-lemlist-human-loop-2026",
+  "meta": { "templateCredsSetupCompleted": true },
+  "id": "AUTO2-V2-LEMLIST",
+  "tags": [{ "id": "v2", "name": "V2" }]
+}

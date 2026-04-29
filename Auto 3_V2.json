@@ -1,0 +1,876 @@
+{
+  "name": "Auto 3 — Leads Salons Professionnels LED V2",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "835a4733-22c4-4fc9-b227-18f2c90de991",
+      "name": "Trigger manuel — Config salon",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [1648, 960],
+      "notes": "COMMENT UTILISER :\n- type_source: 'html' pour annuaire web | 'manuel' pour liste JSON\n- Pour 'html': renseigner url_source (le site sera scrapé via Playwright Stealth)\n- Pour 'manuel': laisser url_source vide et remplir exposants_bruts (texte brut) ou le noeud GPT extracteur"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "auto3-salons-professionnels",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "086cb839-8ccc-48dc-8121-4c1549f257b6",
+      "name": "🌐 Webhook Trigger Auto3",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [1648, 1232],
+      "webhookId": "auto3-salons-professionnels",
+      "notes": "Payload accepté (optionnel):\n{\n  \"nom_salon\": \"Nom du salon\",\n  \"date_salon\": \"YYYY-MM-DD\",\n  \"lieu_salon\": \"Ville\",\n  \"type_source\": \"manuel|html\",\n  \"url_source\": \"https://...\"\n}"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Flatten manual-trigger config into a stable shape.\nconst src = $input.first()?.json?.body || $input.first()?.json || {};\n\nreturn [{\n  json: {\n    nom_salon:   src.nom_salon   || '',\n    lieu_salon:  src.lieu_salon  || '',\n    date_salon:  src.date_salon  || '',\n    type_source: src.type_source || 'html',\n    url_source:  src.url_source  || '',\n    render_mode: src.render_mode || 'browser',\n    exposants_bruts: src.exposants_bruts || null,\n    _origin: 'manuel'\n  }\n}];"
+      },
+      "id": "eaeceebb-80ec-44c9-a6d5-dc9250ec9226",
+      "name": "Resolve Config (Manuel)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1840, 960]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Flatten webhook payload into the SAME shape as the manual resolver.\nconst raw  = $input.first()?.json || {};\nconst body = raw.body || raw;\n\nreturn [{\n  json: {\n    nom_salon:   body.nom_salon   || 'Salon Inconnu',\n    lieu_salon:  body.lieu_salon  || 'Lieu Inconnu',\n    date_salon:  body.date_salon  || 'Date Inconnue',\n    type_source:  body.type_source  || 'html',\n    url_source:   body.url_source   || '',\n    render_mode:  body.render_mode  || 'browser',\n    exposants_bruts: body.exposants_bruts || null,\n    _origin: 'webhook'\n  }\n}];\n"
+      },
+      "id": "a73f99af-600e-486d-8eea-651ded967e9a",
+      "name": "Resolve Config (Webhook)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1824, 1232]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type_source }}",
+                    "rightValue": "html",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "7cd83e3e-f1ca-480a-b0c7-3e0cb61cdec3"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "html"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type_source }}",
+                    "rightValue": "manuel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "961ee22e-18d1-485f-8b07-425d18d22829"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "manuel"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6f1e312b-e110-4ba6-9cf5-410cb92e8e8b",
+      "name": "Switch — type de source",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [2048, 1072]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://lvipro-zc5x.vercel.app/api/scraper/playwright",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { url: $json.url_source, nom_salon: $json.nom_salon } }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 65000
+        }
+      },
+      "id": "playwright-stealth-node-a3-001",
+      "name": "🌐 Playwright Stealth — Scraping",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2272, 960],
+      "alwaysOutputData": true,
+      "continueOnFail": true,
+      "notes": "V2: Remplace Apify. Appelle /api/scraper/playwright (Playwright-extra + Stealth)\npour contourner Cloudflare. Retourne { exposants: [{nom, secteur, site, stand}] }.\ncontinueOnFail=true : si le scraping échoue, 0 items passent en aval."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalise la sortie du scraper Playwright.\n// Input: { exposants: [{nom, secteur, site, stand}] } ou { error: '...' }\nconst raw = $input.first().json;\n\nlet exposants = [];\nif (Array.isArray(raw.exposants)) {\n  exposants = raw.exposants;\n} else if (raw.body && Array.isArray(raw.body.exposants)) {\n  exposants = raw.body.exposants;\n}\n\nconst BLOCK = [\n  'cookie','newsletter','privacy','subscribe','terms','policy',\n  'menu','login','register','home','contact','about','faq','press',\n  '404','not found','le salon','programme','infos pratiques','gdpr','rgpd'\n];\n\nconst isJunk = (s) => {\n  const t = String(s || '').toLowerCase().trim();\n  if (t.length < 2 || t.length > 150) return true;\n  return BLOCK.some(b => t === b || (t.length < 30 && t.includes(b)));\n};\n\nconst seen = new Set();\nconst results = [];\n\nfor (const e of exposants) {\n  const nom = String(e.nom || '').trim();\n  if (!nom || isJunk(nom)) continue;\n  const key = nom.toLowerCase();\n  if (seen.has(key)) continue;\n  seen.add(key);\n  results.push({\n    json: {\n      nom,\n      secteur: String(e.secteur || '').trim(),\n      site:    String(e.site    || '').trim(),\n      stand:   String(e.stand   || '').trim()\n    }\n  });\n}\n\nconsole.log(`Playwright parse: ${exposants.length} raw → ${results.length} clean`);\nreturn results;\n"
+      },
+      "id": "parse-playwright-node-a3-001",
+      "name": "⚙️ Parse Playwright → Format Exposants",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2480, 960],
+      "notes": "Déduplique et filtre la sortie du scraper Playwright.\nProduit {nom, secteur, site, stand} — même format qu'attendu par Normalisation exposants."
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Tu es un extracteur de données structurées. Ta mission est d'analyser un texte brut (souvent copié-collé d'un site web de salon professionnel) et d'en extraire la liste des entreprises exposantes.\n\nRÈGLES :\n1. Extrais : Nom de l'entreprise, Secteur (si présent), Stand (si présent), Site web (si présent).\n2. Si une information est absente, mets une chaîne vide \"\".\n3. Ne réponds RIEN d'autre que du JSON.\n\nFORMAT DE SORTIE (JSON Array) :\n[\n  { \"nom\": \"Nom1\", \"secteur\": \"Secteur1\", \"site\": \"Site1\", \"stand\": \"Stand1\" },\n  { \"nom\": \"Nom2\", \"secteur\": \"Secteur2\", \"site\": \"Site2\", \"stand\": \"Stand2\" }\n]"
+            },
+            {
+              "content": "=Voici le texte brut à analyser :\n{{ $json.exposants_bruts }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [2272, 1232],
+      "id": "0cf7d0f8-a649-4c3e-91dc-739afd501395",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "Bfv2QoNbDzCc71pm",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Run Once for Each Item — pairing natif n8n, fiable\nconst d      = $input.item.json;\nconst person = d.person || {};\n\nconst up    = $('Normalisation exposants').item.json || {};\nconst findD = $('🔍 Apollo — Find Domain').item.json || {};\nconst org   = (Array.isArray(findD.organizations) ? findD.organizations[0] : null) || {};\n\nconst email_enrichi    = person.email        || '';\nconst linkedin_enrichi = person.linkedin_url || '';\nconst contact_nom      = [person.first_name, person.last_name]\n                           .filter(Boolean).join(' ').trim();\nconst contact_titre    = person.title || '';\n\nlet site_web_final = String(up.site_web || '').trim();\nif (!site_web_final) {\n  site_web_final = org.website_url || org.primary_domain || '';\n}\n\nreturn {\n  json: {\n    nom_exposant:     String(up.nom_exposant     || org.name     || '').trim(),\n    secteur_activite: String(up.secteur_activite || org.industry || '').trim(),\n    site_web:         site_web_final,\n    numero_stand:     String(up.numero_stand || '').trim(),\n    nom_salon:        String(up.nom_salon    || '').trim(),\n    lieu_salon:       String(up.lieu_salon   || '').trim(),\n    date_salon:       String(up.date_salon   || '').trim(),\n    email_enrichi,\n    linkedin_enrichi,\n    contact_nom,\n    contact_titre,\n    _has_domain: Boolean(site_web_final),\n    _has_person: Boolean(contact_nom),\n    _has_email:  Boolean(email_enrichi),\n  }\n};\n"
+      },
+      "id": "22472088-5495-4b63-a343-72927b681960",
+      "name": "⚙️ Parsing Enrichissement",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4032, 1088]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Run Once for Each Item — pairing natif n8n, fiable\nconst raw = $input.item.json;\n\nconst d      = $input.item.json;\nconst up     = $input.item.json;\nconst findD  = $input.item.json || {};\nconst org    = (Array.isArray(findD.organizations) ? findD.organizations[0] : null) || {};\n\n\nconst items = $input.all().map(i => i.json);\n\nconst content = raw.output?.[0]?.content?.[0]?.text\n             || raw.text\n             || raw.message?.content\n             || \"\";\n\nlet parsed = [];\ntry {\n  const cleanJson = content.replace(/```json|```/g, '').trim();\n  parsed = JSON.parse(cleanJson);\n} catch (e) {\n  parsed = [];\n}\n\nreturn parsed\n  .map(item => ({\n    json: {\n      nom:     String(item.nom || item.name || item.company || item.entreprise || '').trim(),\n      secteur: String(item.secteur || item.sector || item.industry || '').trim(),\n      site:    String(item.site || item.website || item.site_web || item.url || '').trim(),\n      stand:   String(item.stand || item.booth || item.numero_stand || '').trim(),\n    }\n  }))\n  .filter(e => e.json.nom.length > 1);\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2480, 1232],
+      "id": "1407cdc8-2169-4e72-80f7-8081b50911d7",
+      "name": "Parse Liste Manuelle",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "norm-nom",
+              "name": "nom_exposant",
+              "value": "={{ ($json.nom || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "norm-secteur",
+              "name": "secteur_activite",
+              "value": "={{ ($json.secteur || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "norm-site",
+              "name": "site_web",
+              "value": "={{ ($json.site || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "norm-stand",
+              "name": "numero_stand",
+              "value": "={{ ($json.stand || '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "norm-salon",
+              "name": "nom_salon",
+              "value": "={{ ($('Resolve Config (Manuel)').isExecuted ? $('Resolve Config (Manuel)').first().json.nom_salon : $('Resolve Config (Webhook)').first().json.nom_salon) || 'Salon Inconnu' }}",
+              "type": "string"
+            },
+            {
+              "id": "norm-lieu",
+              "name": "lieu_salon",
+              "value": "={{ ($('Resolve Config (Manuel)').isExecuted ? $('Resolve Config (Manuel)').first().json.lieu_salon : $('Resolve Config (Webhook)').first().json.lieu_salon) || 'Lieu Inconnu' }}",
+              "type": "string"
+            },
+            {
+              "id": "norm-date",
+              "name": "date_salon",
+              "value": "={{ ($('Resolve Config (Manuel)').isExecuted ? $('Resolve Config (Manuel)').first().json.date_salon : $('Resolve Config (Webhook)').first().json.date_salon) || 'Date Inconnue' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e55f1e7c-cec8-499a-bfe3-ec43e0603840",
+      "name": "Normalisation exposants",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [2700, 1088]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Tu es un expert commercial en solutions d'affichage LED pour événements B2B. Tu qualifies des exposants de salons professionnels pour identifier ceux qui ont le plus fort potentiel d'achat ou de location d'écrans LED pour leur stand.\n\nCRITÈRES DE QUALIFICATION POSITIFS (augmentent le score) :\n- Secteur avec fort enjeu visuel : automobile, luxe, tech, retail, cosmétique, agroalimentaire premium, banque/finance, immobilier, événementiel, médias\n- Entreprise moyenne ou grande (indice : nom de marque connu, présence internationale, site web pro)\n- Secteur B2C ou mixte (les marques qui vendent au grand public investissent plus dans le visuel)\n- Stands sur salons premium (Heavent, Maison&Objet, SIAL, FIAC, CES, Viva Technology)\n\nCRITÈRES ÉLIMINATOIRES (score bas) :\n- Associations, syndicats, organismes publics (pas de budget marketing stand)\n- TPE artisanales ou locales sans enjeu de marque\n- Secteurs techniques sans enjeu visuel (plomberie industrielle, fournitures bureaux génériques)\n- Exposants sans site web détectable (probable micro-entreprise)\n\nRÉPONDS UNIQUEMENT en JSON valide sans markdown :\n{\n  \"score_potentiel\": 0.0-1.0,\n  \"categorie\": \"premium|standard|faible|eliminer\",\n  \"taille_estimee\": \"grande|moyenne|petite|inconnue\",\n  \"interet_led\": \"fort|moyen|faible\",\n  \"argument_commercial\": string (1 phrase max, en français, pourquoi ils auraient besoin d'un mur LED),\n  \"raison_elimination\": string|null\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Qualifie cet exposant pour la location d'écrans LED stand :\n\nNom : {{ $json.nom_exposant }}\nSecteur déclaré : {{ $json.secteur_activite }}\nSite web : {{ $json.site_web || 'Non renseigné' }}\nNuméro de stand : {{ $json.numero_stand || 'Non renseigné' }}\nSalon : {{ $json.nom_salon }}\nDate salon : {{ $json.date_salon }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 300,
+          "temperature": 0.2
+        }
+      },
+      "id": "c8124138-a112-4820-a523-576d5a869628",
+      "name": "GPT-4o — Qualification exposant",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [2920, 1088],
+      "credentials": {
+        "openAiApi": {
+          "id": "Bfv2QoNbDzCc71pm",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "parse-gpt",
+              "name": "qualification",
+              "value": "={{ JSON.parse($json.output[0].content[0].text.replace(/```json|```/g, '').trim()) }}",
+              "type": "object"
+            },
+            {
+              "id": "passthrough-nom",
+              "name": "nom_exposant",
+              "value": "={{ $('Normalisation exposants').item.json.nom_exposant }}",
+              "type": "string"
+            },
+            {
+              "id": "passthrough-secteur",
+              "name": "secteur_activite",
+              "value": "={{ $('Normalisation exposants').item.json.secteur_activite }}",
+              "type": "string"
+            },
+            {
+              "id": "passthrough-site",
+              "name": "site_web",
+              "value": "={{ $('Normalisation exposants').item.json.site_web }}",
+              "type": "string"
+            },
+            {
+              "id": "passthrough-stand",
+              "name": "numero_stand",
+              "value": "={{ $('Normalisation exposants').item.json.numero_stand }}",
+              "type": "string"
+            },
+            {
+              "id": "passthrough-salon",
+              "name": "nom_salon",
+              "value": "={{ $('Normalisation exposants').item.json.nom_salon }}",
+              "type": "string"
+            },
+            {
+              "id": "passthrough-date",
+              "name": "date_salon",
+              "value": "={{ $('Normalisation exposants').item.json.date_salon }}",
+              "type": "string"
+            },
+            {
+              "id": "passthrough-lieu",
+              "name": "lieu_salon",
+              "value": "={{ $('Normalisation exposants').item.json.lieu_salon }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9e2d3177-0db4-4632-8a83-20bd5b7a9946",
+      "name": "Parsing réponse GPT",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [3140, 1088],
+      "notes": "V2 FIX: Passthroughs now read from 'Normalisation exposants' (not 'Parsing Enrichissement').\nApollo enrichment runs AFTER this node, gated by the score filter below."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "90776386-2c66-4844-ae15-6bb96616b389",
+              "leftValue": "={{ $json.qualification.score_potentiel }}",
+              "rightValue": 0.65,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "b64e6c00-b9b4-4264-959a-ed86c55b01b4",
+              "leftValue": "={{ $json.qualification.categorie }}",
+              "rightValue": "eliminer",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [3360, 1088],
+      "id": "badac96c-e71b-4b9f-b484-e48f4214eb28",
+      "name": "If",
+      "notes": "V2: Apollo enrichment only runs for leads scoring ≥ 0.65 (Fort/Très Fort).\nLeads below threshold are dropped — saves Apollo credits."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apollo.io/api/v1/mixed_companies/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "gGHkEOjuOuySlv2GmRR7bQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "q_organization_name",
+              "value": "={{ $json.nom_exposant }}"
+            },
+            {
+              "name": "page",
+              "value": "1"
+            },
+            {
+              "name": "per_page",
+              "value": "3"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "85235381-7947-4121-bae2-d625dd77d129",
+      "name": "🔍 Apollo — Find Domain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3584, 1088],
+      "alwaysOutputData": true,
+      "continueOnFail": true,
+      "notes": "V2: Runs AFTER GPT qualification gate (score ≥ 0.65 only).\nSaves Apollo credits — only Fort/Très Fort leads are enriched."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apollo.io/api/v1/people/match",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "domain",
+              "value": "={{ $json.organizations[0]?.primary_domain || \"\" }}"
+            },
+            {
+              "name": "organization_name",
+              "value": "={{ $('Normalisation exposants').item.json.nom_exposant }}"
+            },
+            {
+              "name": "reveal_personal_emails",
+              "value": "false"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "gGHkEOjuOuySlv2GmRR7bQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "67776919-e847-4be1-8de7-d8e12ff87347",
+      "name": "🔍 Apollo — Enrich Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3808, 1088],
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1EN6Tq29Q_6rV6ZTOEZRw342EpBbiBKntOQp8K8lQkms",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads Salons",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Secteur": "={{ $json.secteur_activite }}",
+            "Nom Exposant": "={{ $json.nom_exposant }}",
+            " Site Web": "={{ $json.site_web }}",
+            "Stand": "={{ $json.numero_stand }}",
+            "Email": "={{ $json.email_enrichi }}",
+            "Icebreaker": "={{ $json.qualification.argument_commercial }}",
+            "Statut": "Nouveau Lead Qualifié"
+          },
+          "matchingColumns": ["Nom Exposant"],
+          "schema": [
+            { "id": "Nom Exposant", "displayName": "Nom Exposant", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Secteur", "displayName": "Secteur", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": " Site Web", "displayName": " Site Web", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Stand", "displayName": "Stand", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Email", "displayName": "Email", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Icebreaker", "displayName": "Icebreaker", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Statut", "displayName": "Statut", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "49b32149-5e32-49fd-be71-a42592ce6e4a",
+      "name": "Google Sheets — Leads Salons",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [4256, 912],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "JuuNoUAb4w9BfZGS",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "projets@led-visual-innovation.fr",
+        "subject": "=🏟️ Exposant LED qualifié : {{ $json.nom_exposant }} — {{ $json.nom_salon }}",
+        "message": "=<!DOCTYPE html>\n<html lang=\"fr\">\n<head><meta charset=\"UTF-8\"><style>\n  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f4f6f9;margin:0;padding:20px}\n  .card{background:#ffffff;border-radius:12px;max-width:640px;margin:0 auto;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.10)}\n  .header{background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);padding:28px 32px;color:#fff}\n  .header h1{margin:0;font-size:22px;font-weight:700}\n  .header p{margin:6px 0 0;opacity:.85;font-size:13px}\n  .badge{display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;margin-top:10px}\n  .salon-banner{background:#f5f3ff;border:1px solid #ede9fe;border-radius:8px;padding:14px 18px;margin:16px 32px 0;display:flex;gap:24px;flex-wrap:wrap}\n  .salon-item{font-size:13px;color:#5b21b6}\n  .salon-item span{font-weight:700}\n  .body{padding:24px 32px}\n  .row{display:flex;padding:10px 0;border-bottom:1px solid #f0f0f0}\n  .row:last-child{border-bottom:none}\n  .label{width:160px;font-size:12px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;padding-top:2px}\n  .value{font-size:14px;color:#1a1a2e;line-height:1.5}\n  .score-box{background:#faf5ff;border-radius:8px;padding:16px;margin-top:16px;display:flex;align-items:center;gap:24px}\n  .score-num{font-size:40px;font-weight:900;color:#7c3aed;line-height:1}\n  .score-label{font-size:12px;color:#6b7280;margin-bottom:4px}\n  .score-cat{font-size:16px;font-weight:700;color:#5b21b6}\n  .arg{background:#f0fdf4;border-left:3px solid #16a34a;padding:12px 16px;border-radius:0 8px 8px 0;font-size:14px;color:#14532d;line-height:1.6;margin-top:16px}\n  .cta{text-align:center;padding:24px 32px;background:#f8fafc;border-top:1px solid #e2e8f0}\n  .btn{display:inline-block;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;margin:4px}\n  .btn-ghost{background:#fff;border:1px solid #e2e8f0;color:#475569;text-decoration:none}\n  .footer{text-align:center;padding:16px;font-size:11px;color:#94a3b8}\n</style></head>\n<body>\n<div class=\"card\">\n  <div class=\"header\">\n    <h1>🏟️ Exposant LED Qualifié</h1>\n    <p>Automation Salons Professionnels — LVI Control Center V2</p>\n    <span class=\"badge\">Auto 3 · Opportunités Salons</span>\n  </div>\n  <div class=\"salon-banner\">\n    <div class=\"salon-item\">🏟️ Salon : <span>{{ $json.nom_salon }}</span></div>\n    <div class=\"salon-item\">📅 Date : <span>{{ $json.date_salon }}</span></div>\n    <div class=\"salon-item\">📍 Lieu : <span>{{ $json.lieu_salon }}</span></div>\n  </div>\n  <div class=\"body\">\n    <div class=\"row\"><span class=\"label\">🏢 Exposant</span><span class=\"value\"><strong>{{ $json.nom_exposant }}</strong></span></div>\n    <div class=\"row\"><span class=\"label\">🏭 Secteur</span><span class=\"value\">{{ $json.secteur_activite || '—' }}</span></div>\n    <div class=\"row\"><span class=\"label\">📧 Email enrichi</span><span class=\"value\">{{ $json.email_enrichi || '—' }}</span></div>\n    <div class=\"row\"><span class=\"label\">🔢 Stand</span><span class=\"value\">{{ $json.numero_stand || '—' }}</span></div>\n    <div class=\"row\"><span class=\"label\">📏 Taille Estimée</span><span class=\"value\">{{ $json.qualification.taille_estimee || '—' }}</span></div>\n    <div class=\"row\"><span class=\"label\">💡 Intérêt LED</span><span class=\"value\">{{ $json.qualification.interet_led || '—' }}</span></div>\n    <div class=\"score-box\">\n      <div>\n        <div class=\"score-label\">Score IA</div>\n        <div class=\"score-num\">{{ $json.qualification.score_potentiel }}</div>\n      </div>\n      <div>\n        <div class=\"score-label\">Catégorie</div>\n        <div class=\"score-cat\">{{ $json.qualification.categorie }}</div>\n      </div>\n    </div>\n    <div class=\"arg\">💼 <strong>Argument commercial :</strong><br>{{ $json.qualification.argument_commercial }}</div>\n  </div>\n  <div class=\"cta\">\n    <a href=\"https://lvipro-zc5x.vercel.app\" class=\"btn\">📊 Ouvrir le Dashboard</a>\n    <a href=\"https://lvipro-zc5x.vercel.app\" class=\"btn btn-ghost\">🏟️ Voir les Salons</a>\n  </div>\n  <div class=\"footer\">LVI Control Center V2 · Généré automatiquement par Auto 3 — Opportunités Salons</div>\n</div>\n</body></html>",
+        "options": {}
+      },
+      "id": "47341a63-7fd5-4d82-abf1-7152da11eb42",
+      "name": "📧 Gmail - Notif Exposant Qualifié",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [4256, 1088],
+      "webhookId": "923df448-da92-4dc2-9e0b-479a858f1a91",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2WjwiJwQckJBgO2z",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"workflow\": \"auto3-salons-professionnels\",\n  \"triggered_at\": \"{{ $now.toISO() }}\",\n  \"message\": \"Qualification salons déclenchée via dashboard\"\n}",
+        "options": {}
+      },
+      "id": "c6c517ee-fa52-4e13-b40a-a1fd3dc4251e",
+      "name": "↩️ Respond to Webhook Auto3",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [4480, 912]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.item.json;\nconst q = d.qualification || {};\nconst nomExposant = d.nom_exposant || '';\nconst id = nomExposant.replace(/\\s+/g, '-').toLowerCase() + '-' + Date.now();\n\nconst score = parseFloat(q.score_potentiel) || 0;\nconst taille = q.taille_estimee || 'inconnue';\n\nconst interet = score >= 0.85 ? 'Très Fort' : score >= 0.65 ? 'Fort' : score >= 0.4 ? 'Moyen' : 'Faible';\nconst budget = taille === 'grande' ? 'Élevé' : taille === 'moyenne' ? 'Moyen' : taille === 'petite' ? 'Faible' : 'Inconnu';\n\nreturn [{\n  json: {\n    source: 'auto3-lead',\n    salonNom: d.nom_salon || '',\n    salonLieu: d.lieu_salon || '',\n    salonDates: d.date_salon || '',\n    salonSecteur: 'Salon Professionnel',\n    salonVisiteurs: '',\n    lead: {\n      id: id,\n      entreprise: nomExposant,\n      interet: interet,\n      budget: budget,\n      argumentIA: q.argument_commercial || '',\n      sector: d.secteur_activite || '',\n      email: d.email_enrichi || '',\n      linkedin: d.linkedin_enrichi || ''\n    }\n  }\n}];"
+      },
+      "id": "52bb3c47-c622-4aa7-bf7f-dfee5d6c9113",
+      "name": "🗂️ Mapper Exposant → Dashboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4256, 1280]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://lvipro-zc5x.vercel.app/api/data",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "50d03b62-7785-4568-939b-a4c1c950c03d",
+      "name": "📤 Push Exposant → Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4480, 1280]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "auto3-export-lemlist",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "da2a7ab0-c10b-4d81-bc22-9fd373b99a4e",
+      "name": "🌐 Webhook auto3-export-lemlist",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [3056, 1456],
+      "webhookId": "auto3-export-lemlist",
+      "notes": "Déclenché par /api/auto3-export-lemlist du dashboard.\nPayload : { leads: SalonLeadExport[] }"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\n\nlet leads = [];\n\nif (body.body && Array.isArray(body.body.leads)) {\n    leads = body.body.leads;\n} else if (Array.isArray(body.leads)) {\n    leads = body.leads;\n} else if (Array.isArray(body.body)) {\n    leads = body.body;\n} else if (Array.isArray(body)) {\n    leads = body;\n}\n\nif (leads.length === 0) {\n    return [];\n}\n\nreturn leads.map(lead => ({ json: lead }));"
+      },
+      "id": "0dd8b5ad-f73d-44e2-9c50-96215e0950fc",
+      "name": "✂️ Split Export (Code)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3280, 1456]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.lemlist.com/api/campaigns/cam_rzEKWGxptaY4HYu5B/leads/{{ $json.email }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { firstName: ($json.entreprise || '').trim().split(' ')[0], lastName: ($json.entreprise || '').trim().split(' ').slice(1).join(' ') || '', companyName: $json.entreprise || '', icebreaker: $json.argumentIA || '', typeProjet: $json.sector || '', salonNom: $json.salonNom || '', salonLieu: $json.salonLieu || '', salonDates: $json.salonDates || '' } }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "f00dfa08-0d75-4514-bbfb-9a81b7432bce",
+      "name": "🚀 HTTP Lemlist (Auto3)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3504, 1456],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "5LLKlaGepSVkNuck",
+          "name": "Unnamed credential"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "results",
+        "options": {}
+      },
+      "id": "3fa27719-6b28-4cd4-920a-01ffa7e09e72",
+      "name": "🔗 Agrégation Export",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [3728, 1456]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'success', exported: $json.results.length, message: 'Export Auto3 Lemlist terminé' } }}",
+        "options": {}
+      },
+      "id": "995c8451-f708-46ec-ab8c-0e29b75e0897",
+      "name": "↩️ Respond Export Auto3",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [3952, 1456]
+    }
+  ],
+  "pinData": {
+    "Trigger manuel — Config salon": [
+      {
+        "json": {
+          "body": {
+            "type_source": "html",
+            "url_source": "https://www.ippexpo.org/exhibitor-list/",
+            "nom_salon": "IPPE 2026",
+            "lieu_salon": "Atlanta, Georgia, USA",
+            "date_salon": "2026-01-26"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Trigger manuel — Config salon": {
+      "main": [
+        [
+          { "node": "Resolve Config (Manuel)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🌐 Webhook Trigger Auto3": {
+      "main": [
+        [
+          { "node": "Resolve Config (Webhook)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Resolve Config (Manuel)": {
+      "main": [
+        [
+          { "node": "Switch — type de source", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Resolve Config (Webhook)": {
+      "main": [
+        [
+          { "node": "Switch — type de source", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Switch — type de source": {
+      "main": [
+        [
+          { "node": "🌐 Playwright Stealth — Scraping", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Message a model", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🌐 Playwright Stealth — Scraping": {
+      "main": [
+        [
+          { "node": "⚙️ Parse Playwright → Format Exposants", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "⚙️ Parse Playwright → Format Exposants": {
+      "main": [
+        [
+          { "node": "Normalisation exposants", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          { "node": "Parse Liste Manuelle", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parse Liste Manuelle": {
+      "main": [
+        [
+          { "node": "Normalisation exposants", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Normalisation exposants": {
+      "main": [
+        [
+          { "node": "GPT-4o — Qualification exposant", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "GPT-4o — Qualification exposant": {
+      "main": [
+        [
+          { "node": "Parsing réponse GPT", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parsing réponse GPT": {
+      "main": [
+        [
+          { "node": "If", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          { "node": "🔍 Apollo — Find Domain", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    },
+    "🔍 Apollo — Find Domain": {
+      "main": [
+        [
+          { "node": "🔍 Apollo — Enrich Email", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🔍 Apollo — Enrich Email": {
+      "main": [
+        [
+          { "node": "⚙️ Parsing Enrichissement", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "⚙️ Parsing Enrichissement": {
+      "main": [
+        [
+          { "node": "Google Sheets — Leads Salons", "type": "main", "index": 0 },
+          { "node": "📧 Gmail - Notif Exposant Qualifié", "type": "main", "index": 0 },
+          { "node": "🗂️ Mapper Exposant → Dashboard", "type": "main", "index": 0 },
+          { "node": "↩️ Respond to Webhook Auto3", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🗂️ Mapper Exposant → Dashboard": {
+      "main": [
+        [
+          { "node": "📤 Push Exposant → Dashboard", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🌐 Webhook auto3-export-lemlist": {
+      "main": [
+        [
+          { "node": "✂️ Split Export (Code)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "✂️ Split Export (Code)": {
+      "main": [
+        [
+          { "node": "🚀 HTTP Lemlist (Auto3)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🚀 HTTP Lemlist (Auto3)": {
+      "main": [
+        [
+          { "node": "🔗 Agrégation Export", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🔗 Agrégation Export": {
+      "main": [
+        [
+          { "node": "↩️ Respond Export Auto3", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a3v2-playwright-apollo-gate-2026",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "81df9bd70fd0170d948cdbeac8475d024baff41234081cb5fd73c954a2021fe3"
+  },
+  "id": "ZLvVbSE9sL6E3Brp",
+  "tags": []
+}

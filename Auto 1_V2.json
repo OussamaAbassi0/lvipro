@@ -1,0 +1,590 @@
+{
+  "name": "Auto 1 V2 — Veille LinkedIn (LinkdAPI)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 24 }] }
+      },
+      "id": "d1493132-883d-4645-a515-3df85e4da07d",
+      "name": "⏰ Déclencheur Quotidien",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [-7776, -368]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "auto1-veille-linkedin",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "fc048a56-e779-4180-a921-f6bc9ce0f5be",
+      "name": "🌐 Webhook Trigger Auto1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-7776, -208],
+      "webhookId": "auto1-veille-linkedin"
+    },
+    {
+      "parameters": {
+        "url": "https://lvipro-zc5x.vercel.app/api/competitors",
+        "options": {
+          "batching": { "batch": { "batchSize": 1, "batchInterval": 3000 } }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [-7472, -288],
+      "id": "1c921433-be5f-4fc1-9885-bfaf2d98cc08",
+      "name": "HTTP Request",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "competitors",
+        "options": {}
+      },
+      "id": "b1a3f6ee-8133-4830-9fae-af341dfb45e9",
+      "name": "🔀 Split par Concurrent",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [-7248, -288]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "extract-username-01",
+              "name": "username",
+              "value": "={{ (() => { const url = ($json.linkedin_url || '').replace(/\\/$/, ''); const match = url.match(/linkedin\\.com\\/(in|company)\\/([^\\/?#]+)/); return match ? decodeURIComponent(match[2]) : ''; })() }}",
+              "type": "string"
+            },
+            { "id": "carry-name-01", "name": "competitor_name", "value": "={{ $json.name }}", "type": "string" },
+            { "id": "carry-url-01", "name": "linkedin_url", "value": "={{ $json.linkedin_url }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9843f13f-9639-455f-aa6a-78cb685d21d2",
+      "name": "⚙️ Extraire Username",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [-7024, -288]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "cb7a0eab-cb9a-4dba-ae63-40322a00147e",
+              "leftValue": "={{ $json.linkedin_url }}",
+              "rightValue": "/company/",
+              "operator": { "type": "string", "operation": "contains" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-6816, -288],
+      "id": "346f14cc-7432-4b7d-a7a1-e1b1108c7d10",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "url": "https://linkdapi-best-unofficial-linkedin-api.p.rapidapi.com/api/v1/company/username-to-urn",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [{ "name": "username", "value": "={{ $json.username }}" }] },
+        "options": {
+          "batching": { "batch": { "batchSize": 1, "batchInterval": 3000 } },
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "e18be93b-93e9-47fb-83fe-e830f6ad6b64",
+      "name": "🔍 LinkdAPI — Username to URN1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-6560, -384],
+      "credentials": {
+        "httpCustomAuth": { "id": "vzmFBHhdX22LUci2", "name": "Custom Auth account 2" }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "extract-urn-01b", "name": "urn", "value": "={{ $json.data?.urn || $json.data?.entityUrn || $json.urn || $json.entityUrn || '' }}", "type": "string" },
+            { "id": "carry-name-02b", "name": "competitor_name", "value": "={{ $('⚙️ Extraire Username').item.json.competitor_name }}", "type": "string" },
+            { "id": "carry-url-02b", "name": "linkedin_url", "value": "={{ $('⚙️ Extraire Username').item.json.linkedin_url }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "648f8dc0-99f4-4ece-a4ed-203e23c4395f",
+      "name": "⚙️ Extraire URN1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [-6336, -384]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            { "id": "fb89d851-5fd8-4c09-b4b6-5b3d72816766b", "leftValue": "={{ $json.urn }}", "rightValue": "urn:li:", "operator": { "type": "string", "operation": "startsWith" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-6144, -384],
+      "id": "188c8baf-3d7c-46b1-9979-15242f3538da",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "url": "https://linkdapi-best-unofficial-linkedin-api.p.rapidapi.com/api/v1/company/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [{ "name": "urn", "value": "={{ $json.urn }}" }, { "name": "start", "value": "0" }] },
+        "options": {
+          "batching": { "batch": { "batchSize": 1, "batchInterval": 5000 } },
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "b5803a1e-ca63-4528-8e11-93e066ea9712",
+      "name": "📡 LinkdAPI — Get Posts1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-5888, -400],
+      "credentials": {
+        "httpCustomAuth": { "id": "vzmFBHhdX22LUci2", "name": "Custom Auth account 2" }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://linkdapi-best-unofficial-linkedin-api.p.rapidapi.com/api/v1/profile/username-to-urn",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [{ "name": "username", "value": "={{ $json.username }}" }] },
+        "options": {
+          "batching": { "batch": { "batchSize": 1, "batchInterval": 3000 } },
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "025ce134-f325-4f25-9435-7c09c4720ecf",
+      "name": "🔍 LinkdAPI — Username to URN",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-6560, -208],
+      "credentials": {
+        "httpCustomAuth": { "id": "vzmFBHhdX22LUci2", "name": "Custom Auth account 2" }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "extract-urn-01", "name": "urn", "value": "={{ $json.data?.urn || $json.data?.entityUrn || $json.urn || $json.entityUrn || '' }}", "type": "string" },
+            { "id": "carry-name-02", "name": "competitor_name", "value": "={{ $('⚙️ Extraire Username').item.json.competitor_name }}", "type": "string" },
+            { "id": "carry-url-02", "name": "linkedin_url", "value": "={{ $('⚙️ Extraire Username').item.json.linkedin_url }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "005c0579-ee24-4484-82a4-daa7b0c8876c",
+      "name": "⚙️ Extraire URN",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [-6336, -208]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            { "id": "fb89d851-5fd8-4c09-b4b6-5b3d72816766", "leftValue": "={{ $json.urn }}", "rightValue": "urn:li:", "operator": { "type": "string", "operation": "startsWith" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-6144, -208],
+      "id": "f8e22cc3-cf8c-4fb3-95c5-8d5e3d069c72",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "url": "https://linkdapi-best-unofficial-linkedin-api.p.rapidapi.com/api/v1/posts/all",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [{ "name": "urn", "value": "={{ $json.urn }}" }, { "name": "start", "value": "0" }] },
+        "options": {
+          "batching": { "batch": { "batchSize": 1, "batchInterval": 5000 } },
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "d59d111f-fe62-4596-827b-a6527cd1e78c",
+      "name": "📡 LinkdAPI — Get Posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-5888, -224],
+      "credentials": {
+        "httpCustomAuth": { "id": "vzmFBHhdX22LUci2", "name": "Custom Auth account 2" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst competitorName = $('⚙️ Extraire URN').first().json.competitor_name || $('⚙️ Extraire URN1').first().json.competitor_name || '';\nconst competitorUrl  = $('⚙️ Extraire URN').first().json.linkedin_url  || $('⚙️ Extraire URN1').first().json.linkedin_url  || '';\n\nif (response.success === false || response.statusCode >= 400) {\n  return [{ json: { _no_posts: true, error: response.message || response.error || JSON.stringify(response), _competitor_name: competitorName, _competitor_url: competitorUrl }, pairedItem: { item: 0 } }];\n}\n\nlet posts = [];\nconst d = response.data;\nif (Array.isArray(d)) posts = d;\nelse if (d && Array.isArray(d.elements)) posts = d.elements;\nelse if (d && Array.isArray(d.posts)) posts = d.posts;\nelse if (d && Array.isArray(d.items)) posts = d.items;\nelse if (Array.isArray(response.elements)) posts = response.elements;\nelse if (Array.isArray(response)) posts = response;\n\nif (posts.length === 0) {\n  return [{ json: { _no_posts: true, _competitor_name: competitorName, _competitor_url: competitorUrl }, pairedItem: { item: 0 } }];\n}\n\nreturn posts.slice(0, 15).map(post => ({ json: { ...post, _competitor_name: competitorName, _competitor_url: competitorUrl }, pairedItem: { item: 0 } }));"
+      },
+      "id": "cde04d47-d84f-4963-9f2a-21041cb9e607",
+      "name": "🔄 Extraire et Splitter les Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-5616, -288]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [{ "id": "skip-no-posts-marker", "leftValue": "={{ $json._no_posts }}", "rightValue": true, "operator": { "type": "boolean", "operation": "notEquals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6c516974-b062-4bb4-871c-41e3bc5c4e32",
+      "name": "🔀 Skip si Aucun Post",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [-5360, -288]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "601c4025-6f76-4cf8-91fc-c9c9a1489a3e", "name": "text", "value": "={{ $json.text || $json.commentary || $json.content || $json.description || '' }}", "type": "string" },
+            { "id": "10f56cc1-7b21-476b-ad5f-acf4ad3b28e1", "name": "url", "value": "={{ $json.postUrl || $json.permalink || $json.shareUrl || $json.url || $json.post_url || $json.articleUrl || $json.link || '' }}", "type": "string" },
+            { "id": "9e732381-398c-41b5-8b7e-3b4176af31f0", "name": "post_type", "value": "={{ $json.type || $json.postType || $json.activityType || $json.resharedPost ? 'repost' : 'regular' }}", "type": "string" },
+            { "id": "cc2d487a-fad8-4046-9e11-2d912b2ddc06", "name": "author", "value": "={{ $json.author?.name || $json.authorName || $json._competitor_name || '' }}", "type": "string" },
+            { "id": "c7cb3308-a241-4fe8-9530-2708c5f762f1", "name": "competitor_name", "value": "={{ $json._competitor_name || $('🔀 Split par Concurrent').item.json.name }}", "type": "string" },
+            { "id": "32947649-0850-4505-a795-f5ffdee25d58", "name": "competitor_linkedin", "value": "={{ $json._competitor_url || $('🔀 Split par Concurrent').item.json.linkedin_url }}", "type": "string" },
+            { "id": "79c77942-cb31-4c69-8e4a-34c3e343412a", "name": "scraped_at", "value": "={{ $now.toISO() }}", "type": "string" },
+            { "id": "1abf5329-03ff-4cd8-96d9-dd6563aae8dc", "name": "posted_at", "value": "={{ $json.postedAt || $json.publishedAt || $json.createdAt || $json.date || $json.posted_at || '' }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "25cd8cc9-0575-436f-ab29-04bb876ced02",
+      "name": "🔄 Normalisation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [-5120, -288]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "b3dc4f9b-eff8-4706-a0c5-918904d660bf", "name": "text", "value": "={{ $json.text || '' }}", "type": "string" },
+            { "id": "13cf39d0-0a61-49a6-bb00-eba2aab6ba0d", "name": "url", "value": "={{ $json.url || '' }}", "type": "string" },
+            { "id": "222a2d9e-2bd3-4c04-a007-012421ab8bbe", "name": "posted_at", "value": "={{ $json.posted_at || '' }}", "type": "string" },
+            { "id": "e5cab22f-8d82-42eb-8103-bb28d06d5712", "name": "post_type", "value": "={{ $json.post_type || 'regular' }}", "type": "string" },
+            { "id": "1a158305-2c2a-4a58-98d9-43e1e901588d", "name": "competitor_name", "value": "={{ $json.competitor_name || $('🔀 Split par Concurrent').item.json.name }}", "type": "string" },
+            { "id": "c8d9d17a-2a33-49a9-b5f6-37959a6fde90", "name": "competitor_linkedin", "value": "={{ $json.competitor_linkedin || $('🔀 Split par Concurrent').item.json.linkedin_url }}", "type": "string" },
+            { "id": "f1c229e2-5d1e-4c76-bcdd-4366c6651aa5", "name": "scraped_at", "value": "={{ $now.toISO() }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f5274e90-6111-424e-aa25-4b33e7348a96",
+      "name": "🏷️ Enrichissement Contexte",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [-4720, -352]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [{ "id": "check-error", "leftValue": "={{ $json.error ? true : false }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a8270f1c-5db8-427d-a002-676376ffdc39",
+      "name": "⚠️ Gestionnaire d'Erreurs",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [-4720, -112]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [{ "id": "has-text", "leftValue": "={{ $json.text || '' }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6e46265d-baef-40b7-be91-db44f2c6c9ca",
+      "name": "🧹 Filtre Posts Vides",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [-4240, -352]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst thirtyDaysAgo = new Date();\nthirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);\nreturn items.filter(item => {\n  if (!item.json.posted_at || !item.json.posted_at.timestamp) return true;\n  const postDate = new Date(item.json.posted_at.timestamp);\n  return postDate >= thirtyDaysAgo;\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-3984, -352],
+      "id": "3953a6b1-1351-406c-a7d1-7c261856bc4f",
+      "name": "⚙️ Filtre 30 Jours (Code)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [{ "id": "3288235e-7884-43d7-8a8c-1ac85aeb76f5", "leftValue": "={{ $json.post_type }}", "rightValue": "repost", "operator": { "type": "string", "operation": "notEquals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [-3776, -352],
+      "id": "f2479c63-78c8-496c-84d8-2955c5a239f3",
+      "name": "Filter1"
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "value": "gpt-4o", "mode": "list", "cachedResultName": "GPT-4O" },
+        "messages": {
+          "values": [
+            {
+              "content": "Tu es un analyste business expert en solutions d'affichage LED et en événementiel. Tu analyses des posts LinkedIn de concurrents spécialisés dans les écrans LED, murs vidéo, et installations événementielles.\n\nMISSION : classifier chaque post avec une précision chirurgicale. Le signal utile est RARE — la majorité des posts sont du bruit.\n\nRÈGLE D'OR ANTI-BRUIT : Un post est une 'réalisation' SI ET SEULEMENT SI :\n1. Le concurrent décrit un projet CONCRET et LIVRÉ (installation physique réalisée).\n2. Un client identifiable est mentionné (nom d'entreprise, marque, lieu spécifique).\n3. Il s'agit d'un équipement LED physique installé (mur LED, écran géant, affichage événementiel).\n\nÉLIMINER SYSTÉMATIQUEMENT (is_realization = false, confidence_score < 0.5) :\n- Posts de recrutement / RH / vie d'équipe\n- Témoignages de satisfaction sans projet identifiable\n- Posts génériques sur la technologie LED ou l'innovation\n- Contenus de salons où ils sont VISITEURS (pas exposants)\n- Partenariats commerciaux sans installation\n- Awards, certifications, nominations\n- Contenus éducatifs, tutoriels\n- Republications / reposts d'articles tiers\n- Annonces de produits sans client final mentionné\n\nTYPES DE PROJETS LED acceptés :\n- stand_evenementiel, installation_fixe, facade_exterieure, scene_spectacle, retail_pob, corporate_headquarter, autre\n\nRÉPONDS UNIQUEMENT en JSON valide strict, sans markdown.",
+              "role": "system"
+            },
+            {
+              "content": "=Analyse ce post LinkedIn du concurrent \"{{ $json.competitor_name }}\" et retourne le JSON.\n\nPOST À ANALYSER:\n---\nConcurrent: {{ $json.competitor_name }}\nDate: {{ $json.posted_at || 'Non précisée' }}\nContenu:\n{{ $json.text || '' }}\n---\n\nRetourne EXACTEMENT ce JSON :\n{\n  \"is_realization\": boolean,\n  \"confidence_score\": number (0.0-1.0),\n  \"rejection_reason\": string | null,\n  \"client_name\": string | null,\n  \"client_sector\": string | null,\n  \"project_type\": string | null,\n  \"project_location\": string | null,\n  \"led_technology\": string | null,\n  \"business_opportunity\": string | null,\n  \"key_quote\": string | null\n}"
+            }
+          ]
+        },
+        "options": { "maxTokens": 800, "temperature": 0.05 }
+      },
+      "id": "750e36ee-a685-4591-94ab-39ec6ce17e99",
+      "name": "🤖 GPT-4o - Analyse IA du Post",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.4,
+      "position": [-3520, -352],
+      "credentials": { "openAiApi": { "id": "Bfv2QoNbDzCc71pm", "name": "OpenAI account" } }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [-3296, -352],
+      "id": "c3865eb8-02a1-4088-9b11-eea67e278f01",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "merge-analysis", "name": "analysis", "value": "={{ (() => { try { return JSON.parse($json.message.content) } catch(e) { return { is_realization: false, confidence_score: 0, rejection_reason: 'parse_error' } } })() }}", "type": "object" },
+            { "id": "post-url", "name": "post_url", "value": "={{ $json.url }}", "type": "string" },
+            { "id": "competitor", "name": "competitor_name", "value": "={{ $json.competitor_name }}", "type": "string" },
+            { "id": "post-date", "name": "post_date", "value": "={{ $json.posted_at }}", "type": "string" },
+            { "id": "322e9bbe-e3fd-4470-8ac4-7857e5dd5471", "name": "post_text", "value": "={{ $json.text }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "873946e8-4537-462d-852e-dca0c9e314cd",
+      "name": "📋 Parsing Réponse IA",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [-3072, -352]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [
+            { "id": "is-realization", "leftValue": "={{ $json.analysis.is_realization }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } },
+            { "id": "confidence-threshold", "leftValue": "={{ $json.analysis.confidence_score }}", "rightValue": 0.75, "operator": { "type": "number", "operation": "gte" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a9b186da-2dde-4fbb-b105-1843ddffdc86",
+      "name": "✅ Filtre: Réalisation Validée (>75%)",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [-2544, -352]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "5a140f51-02a3-41e2-a0df-9c331ec2e2ce", "name": "Date détection", "value": "={{ $now.toFormat('dd/MM/yyyy') }}", "type": "string" },
+            { "id": "6366d263-1fa7-4df9-a9f2-45da9e709e19", "name": "Concurrent", "value": "={{ $json.competitor_name }}", "type": "string" },
+            { "id": "f31194de-b6f9-4715-812d-bcb804d7d7a0", "name": "Client final", "value": "={{ $json.analysis.client_name }}", "type": "string" },
+            { "id": "8573130b-b833-43e8-a4e0-49fd68e36b4b", "name": "Secteur client", "value": "={{ $json.analysis.client_sector }}", "type": "string" },
+            { "id": "7ffb2714-0ec4-4288-bdd9-2ac30a42006b", "name": "Type de projet", "value": "={{ $json.analysis.project_type }}", "type": "string" },
+            { "id": "dc0c1be2-d40b-4671-a6dd-41bb2503780c", "name": "Localisation", "value": "={{ $json.analysis.project_location }}", "type": "string" },
+            { "id": "fae6c19c-ee4f-4f4c-aab0-26fd6377a618", "name": "Technologie LED", "value": "={{ $json.analysis.led_technology }}", "type": "string" },
+            { "id": "b2e51411-9e76-40cc-aacc-5f12b50c07f2", "name": "Score confiance IA", "value": "={{ Math.round($json.analysis.confidence_score * 100) + '%' }}", "type": "string" },
+            { "id": "202285b0-33bb-408d-9e64-64380589c9a5", "name": "Opportunité commerciale", "value": "={{ $json.analysis.business_opportunity }}", "type": "string" },
+            { "id": "fd47d4da-5691-4756-9dc0-a1e5fa81a863", "name": "Extrait post", "value": "={{ $json.post_text }}", "type": "string" },
+            { "id": "9edee5f9-3bf4-422c-9c9f-8cda46ef9959", "name": "Citation clé", "value": "={{ $json.analysis.key_quote }}", "type": "string" },
+            { "id": "e35bcd09-f55b-435c-af4c-448d95ac9196", "name": "URL post", "value": "={{ $json.post_url }}", "type": "string" },
+            { "id": "87cbc24b-056f-43a0-8d4c-b1b6520a08ea", "name": "Date post", "value": "={{ $json.post_date?.fullDate || $json.post_date }}", "type": "string" },
+            { "id": "c1e152b0-0210-44ef-b736-8d5643f0c5c5", "name": "Statut suivi", "value": "🔴 Nouveau", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ab6f0e30-37f0-4cc3-8623-fec07b976742",
+      "name": "🎯 Formatage Lead Qualifié",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [-2320, -352]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { \n  \"source\": \"auto1\", \n  \"leads\": [{ \n    \"id\": \"lead_\" + Date.now(), \n    \"dateDetection\": $json[\"Date détection\"] || \"\", \n    \"concurrent\": $json[\"Concurrent\"] || \"\", \n    \"clientFinal\": $json[\"Client final\"] || null, \n    \"secteur\": $json[\"Secteur client\"] || null, \n    \"typeProjet\": $json[\"Type de projet\"] || null, \n    \"localisation\": $json[\"Localisation\"] || null, \n    \"technologie\": $json[\"Technologie LED\"] || null, \n    \"scoreIA\": $json[\"Score confiance IA\"] || \"0%\", \n    \"scoreNum\": parseInt(($json[\"Score confiance IA\"] || \"0\").replace(\"%\",\"\")) || 0, \n    \"opportunite\": $json[\"Opportunité commerciale\"] || null, \n    \"extraitPost\": $json[\"Extrait post\"] || \"\", \n    \"citationCle\": $json[\"Citation clé\"] || null, \n    \"urlPost\": $json[\"URL post\"] || \"\", \n    \"datePost\": $json[\"Date post\"] ? $json[\"Date post\"].toString().substring(0, 100) : \"\", \n    \"statut\": \"🔴 Nouveau\" \n  }] \n} }}",
+        "options": {}
+      },
+      "id": "c4b1a15a-29f4-45d5-bff6-2c3ea9b790a0",
+      "name": "🗂️ Mapper Lead → Dashboard",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [-2096, -64]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://lvipro-zc5x.vercel.app/api/data",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "0748ee97-57f6-4a22-991a-680843e09ce7",
+      "name": "📤 Push Lead → Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-1888, -64]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"workflow\": \"auto1-veille-linkedin\",\n  \"triggered_at\": \"{{ $now.toISO() }}\",\n  \"message\": \"Veille LinkedIn déclenchée via dashboard\"\n}",
+        "options": {}
+      },
+      "id": "3d183527-5439-453b-b856-3f4aeebac3a4",
+      "name": "↩️ Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [-1680, -480]
+    },
+    {
+      "parameters": {},
+      "id": "9e6b60bc-e753-4455-bd54-dab9e26c81b9",
+      "name": "⚠️ Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [-1808, -256]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"error\",\n  \"message\": \"Erreur dans n8n\",\n  \"failed_node\": \"{{ $json.execution.error.node.name }}\",\n  \"error_details\": \"{{ $json.execution.error.message }}\"\n}",
+        "options": {}
+      },
+      "id": "9845c151-d70a-467a-8794-c72de9561b4d",
+      "name": "⚠️ Respond to Webhook (Erreur)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [-1584, -256]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "⏰ Déclencheur Quotidien": { "main": [[{ "node": "HTTP Request", "type": "main", "index": 0 }]] },
+    "🌐 Webhook Trigger Auto1": { "main": [[{ "node": "HTTP Request", "type": "main", "index": 0 }]] },
+    "HTTP Request": { "main": [[{ "node": "🔀 Split par Concurrent", "type": "main", "index": 0 }]] },
+    "🔀 Split par Concurrent": { "main": [[{ "node": "⚙️ Extraire Username", "type": "main", "index": 0 }]] },
+    "⚙️ Extraire Username": { "main": [[{ "node": "If1", "type": "main", "index": 0 }]] },
+    "If1": {
+      "main": [
+        [{ "node": "🔍 LinkdAPI — Username to URN1", "type": "main", "index": 0 }],
+        [{ "node": "🔍 LinkdAPI — Username to URN", "type": "main", "index": 0 }]
+      ]
+    },
+    "🔍 LinkdAPI — Username to URN1": { "main": [[{ "node": "⚙️ Extraire URN1", "type": "main", "index": 0 }]] },
+    "⚙️ Extraire URN1": { "main": [[{ "node": "If2", "type": "main", "index": 0 }]] },
+    "If2": { "main": [[{ "node": "📡 LinkdAPI — Get Posts1", "type": "main", "index": 0 }]] },
+    "📡 LinkdAPI — Get Posts1": { "main": [[{ "node": "🔄 Extraire et Splitter les Posts", "type": "main", "index": 0 }]] },
+    "🔍 LinkdAPI — Username to URN": { "main": [[{ "node": "⚙️ Extraire URN", "type": "main", "index": 0 }]] },
+    "⚙️ Extraire URN": { "main": [[{ "node": "If", "type": "main", "index": 0 }]] },
+    "If": { "main": [[{ "node": "📡 LinkdAPI — Get Posts", "type": "main", "index": 0 }]] },
+    "📡 LinkdAPI — Get Posts": { "main": [[{ "node": "🔄 Extraire et Splitter les Posts", "type": "main", "index": 0 }]] },
+    "🔄 Extraire et Splitter les Posts": { "main": [[{ "node": "🔀 Skip si Aucun Post", "type": "main", "index": 0 }]] },
+    "🔀 Skip si Aucun Post": { "main": [[{ "node": "🔄 Normalisation", "type": "main", "index": 0 }]] },
+    "🔄 Normalisation": {
+      "main": [[
+        { "node": "⚠️ Gestionnaire d'Erreurs", "type": "main", "index": 0 },
+        { "node": "🏷️ Enrichissement Contexte", "type": "main", "index": 0 }
+      ]]
+    },
+    "⚠️ Gestionnaire d'Erreurs": { "main": [] },
+    "🏷️ Enrichissement Contexte": { "main": [[{ "node": "🧹 Filtre Posts Vides", "type": "main", "index": 0 }]] },
+    "🧹 Filtre Posts Vides": { "main": [[{ "node": "⚙️ Filtre 30 Jours (Code)", "type": "main", "index": 0 }]] },
+    "⚙️ Filtre 30 Jours (Code)": { "main": [[{ "node": "Filter1", "type": "main", "index": 0 }]] },
+    "Filter1": {
+      "main": [[
+        { "node": "🤖 GPT-4o - Analyse IA du Post", "type": "main", "index": 0 },
+        { "node": "Merge", "type": "main", "index": 0 }
+      ]]
+    },
+    "🤖 GPT-4o - Analyse IA du Post": { "main": [[{ "node": "Merge", "type": "main", "index": 1 }]] },
+    "Merge": { "main": [[{ "node": "📋 Parsing Réponse IA", "type": "main", "index": 0 }]] },
+    "📋 Parsing Réponse IA": { "main": [[{ "node": "✅ Filtre: Réalisation Validée (>75%)", "type": "main", "index": 0 }]] },
+    "✅ Filtre: Réalisation Validée (>75%)": { "main": [[{ "node": "🎯 Formatage Lead Qualifié", "type": "main", "index": 0 }]] },
+    "🎯 Formatage Lead Qualifié": {
+      "main": [[
+        { "node": "🗂️ Mapper Lead → Dashboard", "type": "main", "index": 0 }
+      ]]
+    },
+    "🗂️ Mapper Lead → Dashboard": { "main": [[{ "node": "📤 Push Lead → Dashboard", "type": "main", "index": 0 }]] },
+    "📤 Push Lead → Dashboard": { "main": [[{ "node": "↩️ Respond to Webhook", "type": "main", "index": 0 }]] },
+    "⚠️ Error Trigger": { "main": [[{ "node": "⚠️ Respond to Webhook (Erreur)", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "a1v2-veille-linkedin-2026",
+  "meta": { "templateCredsSetupCompleted": true },
+  "id": "AUTO1-V2-VEILLE",
+  "tags": [{ "id": "v2", "name": "V2" }]
+}
