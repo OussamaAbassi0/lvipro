@@ -22,7 +22,8 @@
   --text-muted:  rgba(12,20,40,.3);
   --sw:          224px;
   --glass:       rgba(255,255,255,.9);
-  --glass-blur:  blur(20px);
+  /* Reduced from blur(20px) — still glassy, but half the GPU compositing cost */
+  --glass-blur:  blur(12px);
 }
 
 /* ─── Base ────────────────────────────────────────────────────────────────── */
@@ -86,6 +87,11 @@ aside nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-ra
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(43,92,230,.06), 0 1px 3px rgba(0,0,0,.04);
   transition: transform .22s cubic-bezier(.23,1,.32,1), box-shadow .22s;
+  /* Promote each card to its own GPU compositor layer so backdrop-filter
+     is cached per-card instead of recomposited on every paint. */
+  will-change: transform;
+  /* Contain paint to this card — prevents blur from invalidating neighbours */
+  contain: layout style;
 }
 
 .glass-card:hover {

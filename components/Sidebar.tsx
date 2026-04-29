@@ -20,13 +20,16 @@ function useNetworkMesh(canvasRef: React.RefObject<HTMLCanvasElement>) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const opts = { n: 32, color: "100,150,255", dist: 70, speed: 0.25 };
+    // 20 particles (down from 32): O(n²) pairs drop from 496 → 190 per frame.
+    // dist 55 (down from 70): fewer connections qualify, fewer draw calls.
+    const opts = { n: 20, color: "100,150,255", dist: 55, speed: 0.25 };
     let raf: number;
-    let mx = -9999, my = -9999;
 
     const resize = () => {
-      const d = window.devicePixelRatio || 1;
-      canvas.width = canvas.offsetWidth * d;
+      // Cap DPR at 1 — this canvas is purely decorative; retina quality wastes
+      // 4× GPU pixels on a 224px sidebar with 35% opacity.
+      const d = Math.min(window.devicePixelRatio || 1, 1);
+      canvas.width  = canvas.offsetWidth  * d;
       canvas.height = canvas.offsetHeight * d;
       ctx.scale(d, d);
     };
@@ -52,8 +55,6 @@ function useNetworkMesh(canvasRef: React.RefObject<HTMLCanvasElement>) {
 
       for (const p of pts) {
         p.pulse += 0.02;
-        const dx = mx - p.x, dy = my - p.y, d = Math.hypot(dx, dy);
-        if (d < 150 && d > 0) { p.vx += (dx / d) * 0.014; p.vy += (dy / d) * 0.014; }
         p.vx *= 0.984; p.vy *= 0.984;
         p.x += p.vx; p.y += p.vy;
         if (p.x < 0) { p.x = 0; p.vx = Math.abs(p.vx); }
@@ -62,55 +63,47 @@ function useNetworkMesh(canvasRef: React.RefObject<HTMLCanvasElement>) {
         if (p.y > H) { p.y = H; p.vy = -Math.abs(p.vy); }
       }
 
+      // Batch all connection lines into 4 alpha buckets with a single
+      // beginPath/stroke per bucket instead of one draw call per edge.
+      // Cuts GPU state changes from ~190 → 4 per frame.
+      const BUCKETS = 4;
+      const paths: Path2D[] = Array.from({ length: BUCKETS }, () => new Path2D());
       for (let i = 0; i < pts.length; i++) {
         for (let j = i + 1; j < pts.length; j++) {
-          const d = Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y);
+          const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+          const d = Math.sqrt(dx * dx + dy * dy);
           if (d < opts.dist) {
-            const alpha = (1 - d / opts.dist) * 0.28;
-            ctx.beginPath();
-            ctx.moveTo(pts[i].x, pts[i].y);
-            ctx.lineTo(pts[j].x, pts[j].y);
-            ctx.strokeStyle = `rgba(${opts.color},${alpha})`;
-            ctx.lineWidth = 0.9;
-            ctx.stroke();
+            const bucket = Math.min(BUCKETS - 1, Math.floor((1 - d / opts.dist) * BUCKETS));
+            paths[bucket].moveTo(pts[i].x, pts[i].y);
+            paths[bucket].lineTo(pts[j].x, pts[j].y);
           }
         }
       }
+      ctx.lineWidth = 0.9;
+      for (let b = 0; b < BUCKETS; b++) {
+        ctx.strokeStyle = `rgba(${opts.color},${(0.07 + b * 0.07).toFixed(2)})`;
+        ctx.stroke(paths[b]);
+      }
 
+      // Draw nodes
       for (const p of pts) {
         const pulse = 0.4 + 0.2 * Math.sin(p.pulse);
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(${opts.color},${pulse})`;
         ctx.fill();
-        if (p.r > 1.5) {
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r + 2 + Math.sin(p.pulse) * 1.5, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(${opts.color},${pulse * 0.25})`;
-          ctx.lineWidth = 1;
-          ctx.stroke();
-        }
       }
     };
 
-    const onMove = (e: MouseEvent) => {
-      const r = canvas.getBoundingClientRect();
-      mx = e.clientX - r.left; my = e.clientY - r.top;
-    };
-    const onLeave = () => { mx = -9999; my = -9999; };
     const onResize = () => { resize(); spawn(); };
 
     resize();
     spawn();
     tick();
-    canvas.addEventListener("mousemove", onMove);
-    canvas.addEventListener("mouseleave", onLeave);
     window.addEventListener("resize", onResize);
 
     return () => {
       cancelAnimationFrame(raf);
-      canvas.removeEventListener("mousemove", onMove);
-      canvas.removeEventListener("mouseleave", onLeave);
       window.removeEventListener("resize", onResize);
     };
   }, [canvasRef]);
