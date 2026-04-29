@@ -1,11 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Guard against build-time evaluation with missing env vars.
-// Next.js evaluates modules during static analysis; createClient throws on
-// empty strings, so we only instantiate when both vars are present.
 const url = process.env.SUPABASE_URL ?? "";
 const key = process.env.SUPABASE_ANON_KEY ?? "";
 
-export const supabase = (
-  url && key ? createClient(url, key) : null
-) as ReturnType<typeof createClient>;
+// Typed as `any` so query-result types remain `any` throughout the codebase,
+// matching the original createClient("","") inference. Only instantiated when
+// both env vars are present — avoids the build-time throw on Vercel.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const supabase: any = url && key ? createClient(url, key) : null;
