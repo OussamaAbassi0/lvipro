@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from "next/server";
 import { AppDataStore, EMPTY_STORE, VeilleLead, CampagneLead, Salon, SalonLead } from "@/lib/dataTypes";
 import { supabase } from "@/lib/supabase";
