@@ -32,38 +32,64 @@ export async function POST(req: NextRequest) {
 
   const { url, nom_salon } = body;
   if (!url || !url.startsWith('http')) {
-    return NextResponse.json({ error: 'url is required and must start with http' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'url is required and must start with http' },
+      { status: 400 }
+    );
   }
 
   try {
-    // Dynamic import so the module is never evaluated at build time
-    const { chromium } = await import('playwright-extra');
-    const StealthPlugin = (await import('puppeteer-extra-plugin-stealth')).default;
-    chromium.use(StealthPlugin());
+    // Dynamic imports — never evaluated at build time
+    const chromium = (await import('@sparticuz/chromium')).default;
+    const { chromium: playwrightChromium } = await import('playwright-core');
 
-    const browser = await chromium.launch({ headless: true });
+    const browser = await playwrightChromium.launch({
+      args: [
+        ...chromium.args,
+        '--disable-blink-features=AutomationControlled',
+        '--disable-dev-shm-usage',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+      ],
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    });
+
     const context = await browser.newContext({
       userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+        '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       locale: 'fr-FR',
       viewport: { width: 1280, height: 900 },
+      // Remove automation fingerprint
+      extraHTTPHeaders: {
+        'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+      },
+    });
+
+    // Mask navigator.webdriver
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      // @ts-ignore
+      delete navigator.__proto__.webdriver;
     });
 
     const page = await context.newPage();
 
-    // Block heavy resources — speed + stealth
-    await page.route('**/*.{png,jpg,jpeg,gif,svg,woff,woff2,ttf,mp4,webm}', r => r.abort());
+    // Block heavy resources for speed
+    await page.route('**/*.{png,jpg,jpeg,gif,svg,woff,woff2,ttf,mp4,webm}', r =>
+      r.abort()
+    );
 
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-    // Wait for exhibitor content to render
     try {
       await page.waitForSelector(
         'table tr, [class*="exhibitor"], [class*="exposant"], [class*="stand"], li[class*="company"]',
         { timeout: 15000 }
       );
     } catch {
-      // Page loaded but no known selector found — attempt extraction anyway
+      // No known selector found — attempt extraction anyway
     }
 
     const rawRows: Exposant[] = await page.evaluate(() => {
@@ -91,7 +117,9 @@ export async function POST(req: NextRequest) {
         const anchor = card.querySelector<HTMLAnchorElement>('a[href^="http"], a[href^="/"]');
         let site = anchor ? anchor.getAttribute('href') || '' : '';
         if (site.startsWith('/')) site = new URL(site, location.origin).href;
-        const standEl = card.querySelector<HTMLElement>('[class*="booth"], [class*="stand"], [class*="location"]');
+        const standEl = card.querySelector<HTMLElement>(
+          '[class*="booth"], [class*="stand"], [class*="location"]'
+        );
         const stand = standEl ? (standEl.innerText || '').trim() : '';
         out.push({ nom, secteur: '', site, stand });
       });

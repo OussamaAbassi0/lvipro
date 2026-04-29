@@ -14,8 +14,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.400.0",
     "next": "14.2.5",
-    "playwright-extra": "^4.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "playwright-core": "^1.44.1",
     "react": "^18",
     "react-dom": "^18"
   },
