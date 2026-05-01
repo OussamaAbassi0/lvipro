@@ -29,7 +29,7 @@ async function readStore(): Promise<AppDataStore> {
     .from("leads_store")
     .select("data_json")
     .eq("type_auto", STORE_KEY)
-    .single();
+    .maybeSingle();
 
   if (error || !data) return { ...EMPTY_STORE };
   return (data.data_json as AppDataStore) ?? { ...EMPTY_STORE };
@@ -117,7 +117,7 @@ export async function GET() {
     .from("leads_store")
     .select("data_json")
     .eq("type_auto", STORE_KEY)
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error("[/api/data] Supabase error:", error);

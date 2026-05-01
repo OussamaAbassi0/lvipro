@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     .from("leads_store")
     .select("data_json")
     .eq("type_auto", STORE_KEY)
-    .single();
+    .maybeSingle();
 
   if (readErr) {
     return NextResponse.json(
@@ -83,7 +83,7 @@ export async function DELETE(req: NextRequest) {
     .from("leads_store")
     .select("data_json")
     .eq("type_auto", STORE_KEY)
-    .single();
+    .maybeSingle();
 
   if (readErr || !data) {
     return NextResponse.json({ error: "Read failed" }, { status: 500 });

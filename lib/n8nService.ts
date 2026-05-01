@@ -10,7 +10,7 @@
  *   NEXT_PUBLIC_N8N_WEBHOOK_AUTO3=auto3-salons-professionnels
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_N8N_BASE_URL || "https://REMPLACER.n8n.cloud/webhook";
+const BASE_URL = (process.env.NEXT_PUBLIC_N8N_BASE_URL || "https://REMPLACER.n8n.cloud/webhook").replace(/\/$/, "");
 
 export const N8N_WEBHOOKS = {
   auto1: `${BASE_URL}/${process.env.NEXT_PUBLIC_N8N_WEBHOOK_AUTO1 || "auto1-veille-linkedin"}`,

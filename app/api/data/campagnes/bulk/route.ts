@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     .from("leads_store")
     .select("data_json")
     .eq("type_auto", "main")
-    .single();
+    .maybeSingle();
   if (store?.data_json) {
     const next = store.data_json as Record<string, unknown>;
     const lastSync = (next.lastSync as Record<string, string>) ?? {};

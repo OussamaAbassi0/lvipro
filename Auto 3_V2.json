@@ -688,6 +688,18 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [3952, 1456]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"success\", \"workflow\": \"auto3-salons-professionnels\", \"message\": \"Scraping d\\u00e9clench\\u00e9\", \"triggered_at\": \"{{ $now.toISO() }}\" }",
+        "options": {}
+      },
+      "id": "respond-immediate-auto3-001",
+      "name": "↩️ Respond Immédiat Auto3",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2048, 1350]
     }
   ],
   "pinData": {
@@ -730,7 +742,8 @@
     "Resolve Config (Webhook)": {
       "main": [
         [
-          { "node": "Switch — type de source", "type": "main", "index": 0 }
+          { "node": "Switch — type de source", "type": "main", "index": 0 },
+          { "node": "↩️ Respond Immédiat Auto3", "type": "main", "index": 0 }
         ]
       ]
     },
@@ -820,8 +833,7 @@
         [
           { "node": "Google Sheets — Leads Salons", "type": "main", "index": 0 },
           { "node": "📧 Gmail - Notif Exposant Qualifié", "type": "main", "index": 0 },
-          { "node": "🗂️ Mapper Exposant → Dashboard", "type": "main", "index": 0 },
-          { "node": "↩️ Respond to Webhook Auto3", "type": "main", "index": 0 }
+          { "node": "🗂️ Mapper Exposant → Dashboard", "type": "main", "index": 0 }
         ]
       ]
     },
