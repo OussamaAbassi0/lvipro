@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app/api/scraper/playwright/route.ts": {
+      "maxDuration": 60,
+      "memory": 1769,
+      "includeFiles": "node_modules/@sparticuz/chromium/**"
+    }
+  }
+}
